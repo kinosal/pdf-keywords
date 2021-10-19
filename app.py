@@ -1,11 +1,48 @@
 """Streamlit app to analyze pdf files with keywords."""
 
+# Import from standard library
+from typing import Dict
+
 # Import from 3rd party libraries
 import streamlit as st
 import pdftotext
 
-# Page start
 
+# Define global functions
+def analyze_pdf(file: st.uploaded_file_manager.UploadedFile) -> Dict:
+    """Analyze keywords in pdf files.
+    Args:
+        file: pdf file uploaded with streamlit
+    Returns:
+        dict with keyword analytics
+    """
+    pdf = pdftotext.PDF(file)
+    text = "\n\n".join(pdf).lower()
+    n_words = len(text.split(" "))
+
+    counts = []
+    total, weighted, unique = 0, 0, 0
+    for word in keywords.split(","):
+        count = text.count(word.lower())
+        counts.append({
+            "keyword": word, "count": count, "%": count / n_words
+        })
+        total += count
+        weighted += factor * count if word in priority else count
+        unique += 1 if count > 0 else 0
+
+    return {
+        "file": file.name,
+        "counts": counts,
+        "total": total,
+        "ratio": total / n_words,
+        "weighted": weighted,
+        "unique": unique,
+        "score": 2 * unique + weighted + int(400 * total / n_words),
+    }
+
+
+# Render streamlit page
 st.set_page_config(page_title="PDF Keywords")
 
 st.title("Count keywords in pdf files")
@@ -45,34 +82,7 @@ files = st.file_uploader(
 if files and keywords:
     analysis = []
     for file in files:
-        pdf = pdftotext.PDF(file)
-        text = "\n\n".join(pdf).lower()
-
-        counts = []
-        total = 0
-        weighted = 0
-        unique = 0
-        for word in keywords.split(","):
-            count = text.count(word.lower())
-            counts.append({
-                "keyword": word,
-                "count": count,
-                "%": count / len(text.split(" ")),
-            })
-            total += count
-            weighted += factor * count if word in priority else count
-            unique += 1 if count > 0 else 0
-
-        ratio = total / len(text.split(" "))
-        analysis.append({
-            "file": file.name,
-            "counts": counts,
-            "total": total,
-            "ratio": ratio,
-            "weighted": weighted,
-            "unique": unique,
-            "score": 2 * unique + weighted + int(400 * ratio),
-        })
+        analysis.append(analyze_pdf(file))
 
     st.markdown("""---""")
     st.subheader("Summary")
