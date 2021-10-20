@@ -1,18 +1,26 @@
 """Streamlit app to analyze pdf files with keywords."""
 
 # Import from standard library
-from typing import Dict
+from typing import List, Dict
 
 # Import from 3rd party libraries
 import streamlit as st
 import pdftotext
 
 
-# Define global functions
-def analyze_pdf(file: st.uploaded_file_manager.UploadedFile) -> Dict:
+# Define global functions and variables
+def analyze_pdf(
+    file: st.uploaded_file_manager.UploadedFile,
+    keywords: List[str],
+    priority: List[str],
+    factor: int,
+) -> Dict:
     """Analyze keywords in pdf files.
     Args:
         file: pdf file uploaded with streamlit
+        keywords: list with keywords to count
+        priority: list with keywords to weigh more
+        factor: factor by which to increase priority weight
     Returns:
         dict with keyword analytics
     """
@@ -22,7 +30,7 @@ def analyze_pdf(file: st.uploaded_file_manager.UploadedFile) -> Dict:
 
     counts = []
     total, weighted, unique = 0, 0, 0
-    for word in keywords.split(","):
+    for word in keywords:
         count = text.count(word.lower())
         counts.append({
             "keyword": word, "count": count, "%": count / n_words
@@ -42,33 +50,109 @@ def analyze_pdf(file: st.uploaded_file_manager.UploadedFile) -> Dict:
     }
 
 
+# Keywords to include for all presets
+GENERAL_PRESETS = {
+    "keywords": [
+        "data",
+        "product",
+        "scien",
+        "python",
+        "stat",
+        "math",
+        "aws",
+        "s3",
+        "athena",
+        "copenhagen",
+    ]
+}
+
+
+# Keywords to include for specific presets
+SPECIFIC_PRESETS = {
+    "Data Analyst": {
+        "keywords": [
+            "analy",
+            "descri",
+            "predict",
+            "prescri",
+            "sql",
+            "numpy",
+            "pandas",
+            "visual",
+            "hypoth",
+            "test",
+            "experiment",
+            "regress",
+            "classif",
+            "intel",
+        ],
+        "priority": ["sql", "python", "pandas"],
+    },
+    "Data Engineer": {
+        "keywords": [
+            "engineer",
+            "machine",
+            "learn",
+            "lake",
+            "warehouse",
+            "pipeline",
+            "architect",
+            "process",
+            "spark",
+            "kafka",
+            "cassandra",
+            "druid",
+            "snowflake",
+            "redshift",
+            "airflow",
+            "etl",
+            "elt",
+        ],
+        "priority": ["kafka", "cassandra", "druid"],
+    },
+    "Data Scientist": {
+        "keywords": [
+            "machine",
+            "learn",
+            "descri",
+            "predict",
+            "prescri",
+            "process",
+            "model",
+            "infer",
+            "sagemaker",
+            "pytorch",
+            "tensorflow",
+            "scikit",
+            "regress",
+            "classif",
+            "bayes",
+            "frequen",
+        ],
+        "priority": ["learn", "model"],
+    },
+}
+
+
 # Render streamlit page
 st.set_page_config(page_title="PDF Keywords")
 
 st.title("Count keywords in pdf files")
 
-presets = {
-    "Product Data Analyst": {
-        "keywords": "product,data,analy,sql,python,numpy,pandas,visual,stat,hypoth,test,experiment,math,science,athena,s3,regress,classif,intel,machine,learn,sagemaker,copenhagen",
-        "priority": "sql,python,pandas",
-    },
-    "Data Engineer": {
-        "keywords": "data,engineer,product,lake,warehouse,pipeline,machine,learn,architect,process,stat,aws,python,spark,kafka,cassandra,druid,snowflake,redshift,s3,athena,airflow,etl,elt,sagemaker,copenhagen",
-        "priority": "kafka,cassandra,druid",
-    }
-}
-
-preset = st.selectbox("Select a keyword preset", presets.keys())
+preset = st.selectbox("Select a keyword preset", SPECIFIC_PRESETS.keys())
 
 keywords = st.text_input(
-    label="Enter comma-separated keywords", value=presets[preset]["keywords"]
+    label="Enter comma-separated keywords",
+    value=", ".join(
+        GENERAL_PRESETS["keywords"] + SPECIFIC_PRESETS[preset]["keywords"]
+    )
 )
 
 priority = st.multiselect(
     label="Select the most important keywords to receive more weight",
-    options=keywords.split(","),
+    options=keywords.split(", "),
     default=[
-        word for word in presets[preset]["priority"].split(",")
+        word for word in SPECIFIC_PRESETS[preset]["priority"]
         if word in keywords
     ],
 )
@@ -82,7 +166,9 @@ files = st.file_uploader(
 if files and keywords:
     analysis = []
     for file in files:
-        analysis.append(analyze_pdf(file))
+        analysis.append(
+            analyze_pdf(file, keywords.split(", "), priority, factor)
+        )
 
     st.markdown("""---""")
     st.subheader("Summary")
